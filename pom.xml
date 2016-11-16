@@ -10,7 +10,7 @@
         <version>1.7.0</version>
     </parent>
     <groupId>com.lsy</groupId>
-    <artifactId>flume-jd</artifactId>
+    <artifactId>flume-custom</artifactId>
     <version>1.0-SNAPSHOT</version>
     <name>Custom Flume Kafka Sink</name>
 
