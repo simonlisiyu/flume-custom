@@ -396,6 +396,9 @@ public class KafkaSink extends AbstractSink implements Configurable {
       encoder.flush();
       bytes = tempOutStream.get().toByteArray();
     } else {
+      /**
+       * 修改部分
+       */
 //      bytes = event.getBody();
 
       // lisiyu add bytesHeader to returnBytes, Begin...
@@ -404,7 +407,7 @@ public class KafkaSink extends AbstractSink implements Configurable {
         String kv = "\""+entry.getKey() +"\":\""+ entry.getValue()+"\"";
         kvs += kv+",";
       }
-      kvs += "\"body\":\"" + new String(event.getBody())+"\"}";
+      kvs += "\"body\":\"" + new String(event.getBody()).replaceAll("\"", "")+"\"}";
       bytes = kvs.getBytes();
 //      returnBytes = new byte[bytes.length+bytesHeader.length];
 //      System.arraycopy(bytes, 0, returnBytes, 0, bytes.length);
