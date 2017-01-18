@@ -64,16 +64,16 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
    * Create a ReliableTaildirEventReader to watch the given directory.
    */
   private ReliableTaildirEventReader(Map<String, String> filePaths,
-      Table<String, String, String> headerTable, String positionFilePath,
-      boolean skipToEnd, boolean addByteOffset, boolean cachePatternMatching,
-      boolean annotateFileName, String fileNameHeader) throws IOException {
+                                     Table<String, String, String> headerTable, String positionFilePath,
+                                     boolean skipToEnd, boolean addByteOffset, boolean cachePatternMatching,
+                                     boolean annotateFileName, String fileNameHeader) throws IOException {
     // Sanity checks
     Preconditions.checkNotNull(filePaths);
     Preconditions.checkNotNull(positionFilePath);
 
     if (logger.isDebugEnabled()) {
       logger.debug("Initializing {} with directory={}, metaDir={}",
-          new Object[] { ReliableTaildirEventReader.class.getSimpleName(), filePaths });
+              new Object[] { ReliableTaildirEventReader.class.getSimpleName(), filePaths });
     }
 
     List<TaildirMatcher> taildirCache = Lists.newArrayList();
@@ -130,7 +130,7 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
 
         for (Object v : Arrays.asList(inode, pos, path)) {
           Preconditions.checkNotNull(v, "Detected missing value in position file. "
-              + "inode: " + inode + ", pos: " + pos + ", path: " + path);
+                  + "inode: " + inode + ", pos: " + pos + ", path: " + path);
         }
         TailFile tf = tailFiles.get(inode);
         if (tf != null && tf.updatePos(path, inode, pos)) {
@@ -183,7 +183,7 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
   }
 
   public List<Event> readEvents(int numEvents, boolean backoffWithoutNL)
-      throws IOException {
+          throws IOException {
     if (!committed) {
       if (currentFile == null) {
         throw new IllegalStateException("current file does not exist. " + currentFile.getPath());
@@ -241,48 +241,7 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
     for (TaildirMatcher taildir : taildirCache) {
       Map<String, String> headers = headerTable.row(taildir.getFileGroup());
 
-//      System.out.println("parentDir=" + Arrays.toString(taildir.getParentDir().listFiles()));
-      File[] files = taildir.getParentDir().listFiles();
-
-      updatedInodes = recursionFilesForUpdateTailFiles(files, skipToEnd, headers, updatedInodes);
-
-//      for (File f : taildir.getMatchingFiles()) {
-//      for (File f : files ) {
-//        if(f.isDirectory()){
-//          continue;
-//        }
-//        long inode = getInode(f);
-//        TailFile tf = tailFiles.get(inode);
-//        if (tf == null || !tf.getPath().equals(f.getAbsolutePath())) {
-//          long startPos = skipToEnd ? f.length() : 0;
-//          tf = openFile(f, headers, inode, startPos);
-//        } else {
-//          boolean updated = tf.getLastUpdated() < f.lastModified();
-//          if (updated) {
-//            if (tf.getRaf() == null) {
-//              tf = openFile(f, headers, inode, tf.getPos());
-//            }
-//            if (f.length() < tf.getPos()) {
-//              logger.info("Pos " + tf.getPos() + " is larger than file size! "
-//                  + "Restarting from pos 0, file: " + tf.getPath() + ", inode: " + inode);
-//              tf.updatePos(tf.getPath(), inode, 0);
-//            }
-//          }
-//          tf.setNeedTail(updated);
-//        }
-//        tailFiles.put(inode, tf);
-//        updatedInodes.add(inode);
-//      }
-    }
-    return updatedInodes;
-  }
-
-  public List<Long> recursionFilesForUpdateTailFiles(File[] files, boolean skipToEnd, Map<String, String> headers, List<Long> updatedInode) throws IOException {
-
-    for (File f : files ) {
-      if(f.isDirectory()){
-        recursionFilesForUpdateTailFiles(f.listFiles(), skipToEnd, headers, updatedInode);
-      } else {
+      for (File f : taildir.getMatchingFiles()) {
         long inode = getInode(f);
         TailFile tf = tailFiles.get(inode);
         if (tf == null || !tf.getPath().equals(f.getAbsolutePath())) {
@@ -303,10 +262,10 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
           tf.setNeedTail(updated);
         }
         tailFiles.put(inode, tf);
-        updatedInode.add(inode);
+        updatedInodes.add(inode);
       }
     }
-    return updatedInode;
+    return updatedInodes;
   }
 
   public List<Long> updateTailFiles() throws IOException {
@@ -385,8 +344,8 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
 
     public ReliableTaildirEventReader build() throws IOException {
       return new ReliableTaildirEventReader(filePaths, headerTable, positionFilePath, skipToEnd,
-                                            addByteOffset, cachePatternMatching,
-                                            annotateFileName, fileNameHeader);
+              addByteOffset, cachePatternMatching,
+              annotateFileName, fileNameHeader);
     }
   }
 

@@ -17,18 +17,7 @@
 
 package com.jcloud.flume.source.taildir;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.*;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.gson.Gson;
-import org.apache.flume.*;
-import org.apache.flume.conf.Configurable;
-import org.apache.flume.instrumentation.SourceCounter;
-import org.apache.flume.source.AbstractSource;
-import org.apache.flume.source.PollableSourceConstants;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static com.jcloud.flume.source.taildir.TaildirSourceConfigurationConstants.*;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -39,9 +28,33 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
-import static com.jcloud.flume.source.taildir.TaildirSourceConfigurationConstants.*;
+import org.apache.flume.ChannelException;
+import org.apache.flume.Context;
+import org.apache.flume.Event;
+import org.apache.flume.FlumeException;
+import org.apache.flume.PollableSource;
+import org.apache.flume.conf.Configurable;
+import org.apache.flume.instrumentation.SourceCounter;
+import org.apache.flume.source.AbstractSource;
+import org.apache.flume.source.PollableSourceConstants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Table;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.gson.Gson;
 
 public class TaildirSource extends AbstractSource implements
         PollableSource, Configurable {
@@ -79,27 +92,27 @@ public class TaildirSource extends AbstractSource implements
     logger.info("{} TaildirSource source starting with directory: {}", getName(), filePaths);
     try {
       reader = new ReliableTaildirEventReader.Builder()
-          .filePaths(filePaths)
-          .headerTable(headerTable)
-          .positionFilePath(positionFilePath)
-          .skipToEnd(skipToEnd)
-          .addByteOffset(byteOffsetHeader)
-          .cachePatternMatching(cachePatternMatching)
-          .annotateFileName(fileHeader)
-          .fileNameHeader(fileHeaderKey)
-          .build();
+              .filePaths(filePaths)
+              .headerTable(headerTable)
+              .positionFilePath(positionFilePath)
+              .skipToEnd(skipToEnd)
+              .addByteOffset(byteOffsetHeader)
+              .cachePatternMatching(cachePatternMatching)
+              .annotateFileName(fileHeader)
+              .fileNameHeader(fileHeaderKey)
+              .build();
     } catch (IOException e) {
       throw new FlumeException("Error instantiating ReliableTaildirEventReader", e);
     }
     idleFileChecker = Executors.newSingleThreadScheduledExecutor(
-        new ThreadFactoryBuilder().setNameFormat("idleFileChecker").build());
+            new ThreadFactoryBuilder().setNameFormat("idleFileChecker").build());
     idleFileChecker.scheduleWithFixedDelay(new idleFileCheckerRunnable(),
-        idleTimeout, checkIdleInterval, TimeUnit.MILLISECONDS);
+            idleTimeout, checkIdleInterval, TimeUnit.MILLISECONDS);
 
     positionWriter = Executors.newSingleThreadScheduledExecutor(
-        new ThreadFactoryBuilder().setNameFormat("positionWriter").build());
+            new ThreadFactoryBuilder().setNameFormat("positionWriter").build());
     positionWriter.scheduleWithFixedDelay(new PositionWriterRunnable(),
-        writePosInitDelay, writePosInterval, TimeUnit.MILLISECONDS);
+            writePosInitDelay, writePosInterval, TimeUnit.MILLISECONDS);
 
     super.start();
     logger.debug("TaildirSource started");
@@ -132,8 +145,8 @@ public class TaildirSource extends AbstractSource implements
   @Override
   public String toString() {
     return String.format("Taildir source: { positionFile: %s, skipToEnd: %s, "
-        + "byteOffsetHeader: %s, idleTimeout: %s, writePosInterval: %s }",
-        positionFilePath, skipToEnd, byteOffsetHeader, idleTimeout, writePosInterval);
+                    + "byteOffsetHeader: %s, idleTimeout: %s, writePosInterval: %s }",
+            positionFilePath, skipToEnd, byteOffsetHeader, idleTimeout, writePosInterval);
   }
 
   @Override
@@ -142,9 +155,9 @@ public class TaildirSource extends AbstractSource implements
     Preconditions.checkState(fileGroups != null, "Missing param: " + FILE_GROUPS);
 
     filePaths = selectByKeys(context.getSubProperties(FILE_GROUPS_PREFIX),
-                             fileGroups.split("\\s+"));
+            fileGroups.split("\\s+"));
     Preconditions.checkState(!filePaths.isEmpty(),
-        "Mapping for tailing files is empty or invalid: '" + FILE_GROUPS_PREFIX + "'");
+            "Mapping for tailing files is empty or invalid: '" + FILE_GROUPS_PREFIX + "'");
 
     String homePath = System.getProperty("user.home").replace('\\', '/');
     positionFilePath = context.getString(POSITION_FILE, homePath + DEFAULT_POSITION_FILE);
@@ -161,12 +174,12 @@ public class TaildirSource extends AbstractSource implements
     idleTimeout = context.getInteger(IDLE_TIMEOUT, DEFAULT_IDLE_TIMEOUT);
     writePosInterval = context.getInteger(WRITE_POS_INTERVAL, DEFAULT_WRITE_POS_INTERVAL);
     cachePatternMatching = context.getBoolean(CACHE_PATTERN_MATCHING,
-        DEFAULT_CACHE_PATTERN_MATCHING);
+            DEFAULT_CACHE_PATTERN_MATCHING);
 
     backoffSleepIncrement = context.getLong(PollableSourceConstants.BACKOFF_SLEEP_INCREMENT,
-        PollableSourceConstants.DEFAULT_BACKOFF_SLEEP_INCREMENT);
+            PollableSourceConstants.DEFAULT_BACKOFF_SLEEP_INCREMENT);
     maxBackOffSleepInterval = context.getLong(PollableSourceConstants.MAX_BACKOFF_SLEEP,
-        PollableSourceConstants.DEFAULT_MAX_BACKOFF_SLEEP);
+            PollableSourceConstants.DEFAULT_MAX_BACKOFF_SLEEP);
     fileHeader = context.getBoolean(FILENAME_HEADER,
             DEFAULT_FILE_HEADER);
     fileHeaderKey = context.getString(FILENAME_HEADER_KEY,
@@ -237,7 +250,7 @@ public class TaildirSource extends AbstractSource implements
   }
 
   private void tailFileProcess(TailFile tf, boolean backoffWithoutNL)
-      throws IOException, InterruptedException {
+          throws IOException, InterruptedException {
     while (true) {
       reader.setCurrentFile(tf);
       List<Event> events = reader.readEvents(batchSize, backoffWithoutNL);
@@ -251,7 +264,7 @@ public class TaildirSource extends AbstractSource implements
         reader.commit();
       } catch (ChannelException ex) {
         logger.warn("The channel is full or unexpected failure. " +
-            "The source will try again after " + retryInterval + " ms");
+                "The source will try again after " + retryInterval + " ms");
         TimeUnit.MILLISECONDS.sleep(retryInterval);
         retryInterval = retryInterval << 1;
         retryInterval = Math.min(retryInterval, maxRetryInterval);

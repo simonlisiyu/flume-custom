@@ -72,7 +72,7 @@ public class TaildirMatcher {
   // directory monitored for changes
   private File parentDir;
   // cached instance for filtering files based on filePattern
-  private final DirectoryStream.Filter<Path> fileFilter;
+//  private final DirectoryStream.Filter<Path> fileFilter;
 
   // system time in milliseconds, stores the last modification time of the
   // parent directory seen by the last check, rounded to seconds
@@ -86,7 +86,8 @@ public class TaildirMatcher {
   // cached content, files which matched the pattern within the parent directory
   private List<File> lastMatchedFiles = Lists.newArrayList();
 
-  private final String glob;
+  private final PathMatcher matcher;
+  private static List<File> result = Lists.newArrayList();
 
   /**
    * Package accessible constructor. From configuration context it represents a single
@@ -127,38 +128,15 @@ public class TaildirMatcher {
     /**
      * glob匹配子集目录和文件的方法
      */
-    this.glob = f.getName();
-    final PathMatcher matcher = FS.getPathMatcher("glob:**/" + this.glob);
+    String glob = f.getName();
+    this.matcher = FS.getPathMatcher("glob:**/" + glob);
 
-    try {
-      Files.walkFileTree(Paths.get(f.getParentFile().toString()), new SimpleFileVisitor<Path>() {
-
-        @Override
-        public FileVisitResult visitFile(Path path,
-                                         BasicFileAttributes attrs) throws IOException {
-          if (matcher.matches(path)) {
-//            System.out.println(path);
-          }
-          return FileVisitResult.CONTINUE;
-        }
-
-        @Override
-        public FileVisitResult visitFileFailed(Path file, IOException exc)
-                throws IOException {
-          return FileVisitResult.CONTINUE;
-        }
-      });
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-
-
-    this.fileFilter = new DirectoryStream.Filter<Path>() {
-      @Override
-      public boolean accept(Path entry) throws IOException {
-        return matcher.matches(entry.getFileName()) && !Files.isDirectory(entry);
-      }
-    };
+//    this.fileFilter = new DirectoryStream.Filter<Path>() {
+//      @Override
+//      public boolean accept(Path entry) throws IOException {
+//        return matcher.matches(entry.getFileName()) && !Files.isDirectory(entry);
+//      }
+//    };
 
     // sanity check
     Preconditions.checkState(parentDir.exists(),
@@ -221,11 +199,26 @@ public class TaildirMatcher {
     // - directory was clearly updated after the last check OR
     // - last mtime change wasn't already checked for sure
     //   (system clock hasn't passed that second yet)
-    if (!cachePatternMatching ||
-        lastSeenParentDirMTime < currentParentDirMTime ||
-        !(currentParentDirMTime < lastCheckedTime)) {
+//    if (!cachePatternMatching ||
+//        lastSeenParentDirMTime < currentParentDirMTime ||
+//        !(currentParentDirMTime < lastCheckedTime)) {
+//      lastMatchedFiles = sortByLastModifiedTime(getMatchingFilesNoCache());
+//      lastSeenParentDirMTime = currentParentDirMTime;
+//      lastCheckedTime = now;
+//    }
+//    if (lastSeenParentDirMTime < currentParentDirMTime ||
+//            !(currentParentDirMTime < lastCheckedTime)) {
+//      lastMatchedFiles = sortByLastModifiedTime(getMatchingFilesNoCache());
+//      lastSeenParentDirMTime = currentParentDirMTime;
+//      lastCheckedTime = now;
+//    }
+//    if (!(currentParentDirMTime < lastCheckedTime)) {
+//      lastMatchedFiles = sortByLastModifiedTime(getMatchingFilesNoCache());
+//      lastSeenParentDirMTime = currentParentDirMTime;
+//      lastCheckedTime = now;
+//    }
+    if (lastCheckedTime < (now-1000L)) {
       lastMatchedFiles = sortByLastModifiedTime(getMatchingFilesNoCache());
-      lastSeenParentDirMTime = currentParentDirMTime;
       lastCheckedTime = now;
     }
 
@@ -248,16 +241,39 @@ public class TaildirMatcher {
    * @see DirectoryStream
    * @see DirectoryStream.Filter
    */
-  private List<File> getMatchingFilesNoCache() {
-    List<File> result = Lists.newArrayList();
-    try (DirectoryStream<Path> stream = Files.newDirectoryStream(parentDir.toPath(), this.glob)) {
-      for (Path entry : stream) {
 
-        result.add(entry.toFile());
-      }
+  private List<File> getMatchingFilesNoCache() {
+//    try (DirectoryStream<Path> stream = Files.newDirectoryStream(parentDir.toPath(), this.glob)) {
+//      for (Path entry : stream) {
+//
+//        result.add(entry.toFile());
+//      }
+//    } catch (IOException e) {
+//      logger.error("I/O exception occurred while listing parent directory. " +
+//                   "Files already matched will be returned. " + parentDir.toPath(), e);
+//    }
+    try {
+
+      Files.walkFileTree(Paths.get(this.parentDir.toString()), new SimpleFileVisitor<Path>() {
+
+        @Override
+        public FileVisitResult visitFile(Path path,
+                                         BasicFileAttributes attrs) throws IOException {
+          if (matcher.matches(path)) {
+//            System.out.println(path);
+            result.add(path.toFile());
+          }
+          return FileVisitResult.CONTINUE;
+        }
+
+        @Override
+        public FileVisitResult visitFileFailed(Path file, IOException exc)
+                throws IOException {
+          return FileVisitResult.CONTINUE;
+        }
+      });
     } catch (IOException e) {
-      logger.error("I/O exception occurred while listing parent directory. " +
-                   "Files already matched will be returned. " + parentDir.toPath(), e);
+      e.printStackTrace();
     }
     return result;
   }
