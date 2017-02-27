@@ -231,7 +231,7 @@ public class TaildirSource extends AbstractSource implements
         TimeUnit.MILLISECONDS.sleep(retryInterval);
       } catch (InterruptedException e) {
         logger.info("Interrupted while sleeping");
-      }
+       }
     } catch (Throwable t) {
       logger.error("Unable to tail files", t);
       status = Status.BACKOFF;
