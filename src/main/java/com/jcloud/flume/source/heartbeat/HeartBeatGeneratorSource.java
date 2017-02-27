@@ -27,37 +27,27 @@ import org.apache.flume.source.AbstractPollableSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class SequenceGeneratorSource extends AbstractPollableSource implements
+public class HeartBeatGeneratorSource extends AbstractPollableSource implements
         Configurable {
 
   private static final Logger logger = LoggerFactory
       .getLogger(org.apache.flume.source.SequenceGeneratorSource.class);
 
-  private long sequence;
-  private int batchSize;
-  private SourceCounter sourceCounter;
-  private List<Event> batchArrayList;
-  private long totalEvents;
-  private long eventsSent = 0;
+  private static final long msForMinute = 60000L;
 
-  public SequenceGeneratorSource() {
-    sequence = 0;
-  }
+  private SourceCounter sourceCounter;
+  private long intervalMs;
+  private long currentTs;
+  private long eventsSentTs = 0L;
+
 
   /**
    * Read parameters from context
-   * <li>batchSize = type int that defines the size of event batches
+   * <li>intervalMs = type long that defines the interval(ms) of event sent
    */
   @Override
   protected void doConfigure(Context context) throws FlumeException {
-    batchSize = context.getInteger("batchSize", 1);
-    if (batchSize > 1) {
-      batchArrayList = new ArrayList<Event>(batchSize);
-    }
-    totalEvents = context.getLong("totalEvents", Long.MAX_VALUE);
+    intervalMs = context.getLong("intervalMs", msForMinute);
     if (sourceCounter == null) {
       sourceCounter = new SourceCounter(getName());
     }
@@ -66,57 +56,38 @@ public class SequenceGeneratorSource extends AbstractPollableSource implements
   @Override
   protected Status doProcess() throws EventDeliveryException {
     Status status = Status.READY;
-    int i = 0;
+    currentTs = System.currentTimeMillis();
     try {
-      if (batchSize <= 1) {
-        if (eventsSent < totalEvents) {
-          getChannelProcessor().processEvent(
-                  EventBuilder.withBody(String.valueOf(sequence++).getBytes()));
-          sourceCounter.incrementEventAcceptedCount();
-          eventsSent++;
-        } else {
-          status = Status.BACKOFF;
-        }
+      if ((eventsSentTs+intervalMs) < currentTs) {
+        getChannelProcessor().processEvent(
+                EventBuilder.withBody(String.valueOf(currentTs).getBytes()));
+        sourceCounter.incrementEventAcceptedCount();
+        eventsSentTs = currentTs;
       } else {
-        batchArrayList.clear();
-        for (i = 0; i < batchSize; i++) {
-          if (eventsSent < totalEvents) {
-            batchArrayList.add(i, EventBuilder.withBody(String
-                    .valueOf(sequence++).getBytes()));
-            eventsSent++;
-          } else {
-            status = Status.BACKOFF;
-          }
-        }
-        if (!batchArrayList.isEmpty()) {
-          getChannelProcessor().processEventBatch(batchArrayList);
-          sourceCounter.incrementAppendBatchAcceptedCount();
-          sourceCounter.addToEventAcceptedCount(batchArrayList.size());
-        }
+        status = Status.BACKOFF;
       }
 
     } catch (ChannelException ex) {
-      eventsSent -= i;
+      eventsSentTs = 0L;
       logger.error( getName() + " source could not write to channel.", ex);
     }
-
     return status;
   }
 
   @Override
   protected void doStart() throws FlumeException {
-    logger.info("Sequence generator source do starting");
+    logger.info("HeartBeat generator source do starting");
     sourceCounter.start();
-    logger.debug("Sequence generator source do started");
+    logger.debug("HeartBeat generator source do started");
   }
 
   @Override
   protected void doStop() throws FlumeException {
-    logger.info("Sequence generator source do stopping");
+    logger.info("HeartBeat generator source do stopping");
 
     sourceCounter.stop();
 
-    logger.info("Sequence generator source do stopped. Metrics:{}",getName(), sourceCounter);
+    logger.info("HeartBeat generator source do stopped. Metrics:{}",getName(), sourceCounter);
   }
 
 }

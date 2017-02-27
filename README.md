@@ -23,3 +23,13 @@ a1.sources.r1.filegroups.f1 = /var/log/test/*.log
 a1.sources.r1.headers.f1.headerKey1 = testlog
 a1.sources.r1.fileHeader = true
 
+
+## HeartBeatGeneratorSource
+
+### HeartBeatGeneratorSource conf example
+# Describe/configure the source
+a1.sources.r1.type = com.jcloud.flume.source.heartbeat.HeartBeatGeneratorSource
+a1.sources.r1.intervalMs = 60000
+
+### cmd example
+bin/flume-ng agent -c . -f conf/hb.conf -n a1 -Dflume.root.logger=INFO,console
