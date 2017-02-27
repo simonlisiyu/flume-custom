@@ -11,8 +11,8 @@
     </parent>
     <groupId>com.lsy</groupId>
     <artifactId>flume-custom</artifactId>
-    <version>1.0-SNAPSHOT</version>
-    <name>Custom Flume Kafka Sink</name>
+    <version>1.1</version>
+    <name>Custom Flume Source And Sink</name>
 
     <properties>
         <kafka.version>0.9.0.1</kafka.version>
