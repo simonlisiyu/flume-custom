@@ -261,8 +261,12 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
           }
           tf.setNeedTail(updated);
         }
-        tailFiles.put(inode, tf);
-        updatedInodes.add(inode);
+
+        if(tf != null){
+          tailFiles.put(inode, tf);
+          updatedInodes.add(inode);
+        }
+
       }
     }
     return updatedInodes;
@@ -274,7 +278,12 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
 
 
   private long getInode(File file) throws IOException {
-    long inode = (long) Files.getAttribute(file.toPath(), "unix:ino");
+    long inode = -1;
+    try {
+      inode = (long) Files.getAttribute(file.toPath(), "unix:ino");
+    } catch (IOException e) {
+//      e.printStackTrace();
+    }
     return inode;
   }
 
@@ -283,7 +292,8 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
       logger.info("Opening file: " + file + ", inode: " + inode + ", pos: " + pos);
       return new TailFile(file, headers, inode, pos);
     } catch (IOException e) {
-      throw new FlumeException("Failed opening file: " + file, e);
+//      throw new FlumeException("Failed opening file: " + file, e);
+      return null;
     }
   }
 
