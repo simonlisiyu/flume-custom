@@ -35,7 +35,7 @@ public class TaildirSourceConfigurationConstants {
 
   /** Whether to skip the position to EOF in the case of files not written on the position file. */
   public static final String SKIP_TO_END = "skipToEnd";
-  public static final boolean DEFAULT_SKIP_TO_END = false;
+  public static final boolean DEFAULT_SKIP_TO_END = true;
 
   /** Time (ms) to close idle files. */
   public static final String IDLE_TIMEOUT = "idleTimeout";

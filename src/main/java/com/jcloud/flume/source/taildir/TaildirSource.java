@@ -25,9 +25,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -343,11 +345,13 @@ public class TaildirSource extends AbstractSource implements
 
   private String toPosInfoJson() {
     @SuppressWarnings("rawtypes")
-    List<Map> posInfos = Lists.newArrayList();
+//    List<Map> posInfos = Lists.newArrayList();
+    Set<Map> posInfos = new HashSet<>();
     for (Long inode : existingInodes) {
       TailFile tf = reader.getTailFiles().get(inode);
       posInfos.add(ImmutableMap.of("inode", inode, "pos", tf.getPos(), "file", tf.getPath()));
     }
-    return new Gson().toJson(posInfos);
+    String returnStr = new Gson().toJson(posInfos);
+    return returnStr;
   }
 }
